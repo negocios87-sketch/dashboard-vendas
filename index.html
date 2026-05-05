@@ -209,7 +209,7 @@ const ini    = n => { const p=n.trim().split(' '); return (p[0][0]+(p[p.length-1
 const status = m => document.getElementById('loadStatus').textContent = m;
 
 // ─── EQUIPES VÁLIDAS (whitelist) ─────────────────────────────
-const EQUIPES_VALIDAS = new Set(['Latam','Atlantis','Olympus','Elite','Sniper','Orion']);
+const EQUIPES_VALIDAS_LOWER = new Set(['latam','atlantis','olympus','elite','sniper','orion']);
 
 // ─── NORMALIZAÇÃO DE EQUIPE ───────────────────────────────────
 // MGM → Olympus (Ascensão também, legado)
@@ -357,7 +357,7 @@ async function carregarConfig() {
     if (metaReunioes > 0) continue;
 
     const subarea = nomeParaSubarea[nome] || '—';
-    if (!EQUIPES_VALIDAS.has(subarea)) continue; // equipe fora do escopo
+    if (!EQUIPES_VALIDAS_LOWER.has(subarea.toLowerCase())) continue; // equipe fora do escopo
     equipes[nome] = subarea;
     const meta = parseBRL(row['Meta Financeira']);
     if (subarea !== '—') metasEq[subarea] = (metasEq[subarea] || 0) + meta;
@@ -435,7 +435,7 @@ function processar(deals) {
     const val    = parseFloat(d.value || 0);
     const dia    = new Date(wt).getDate();
     const equipe = normalizeEquipe(CONFIG.EQUIPES[nome] || '—');
-    if (!EQUIPES_VALIDAS.has(equipe)) continue; // vendedor fora do escopo
+    if (!EQUIPES_VALIDAS_LOWER.has(equipe.toLowerCase())) continue; // vendedor fora do escopo
 
     if (!vendedores[nome]) vendedores[nome] = { valor:0, volume:0, equipe };
     vendedores[nome].valor  += val;
