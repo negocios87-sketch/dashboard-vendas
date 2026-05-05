@@ -430,10 +430,14 @@ function processar(deals) {
 
   for (const d of deals) {
     const wt = d.won_time || '';
-    if (!wt.startsWith(mesYM)) continue;
+    if (!wt) continue;
+    // won_time vem em UTC — converte para Brasília (UTC-3)
+    const wtBrasil = new Date(new Date(wt + 'Z').getTime() - 3 * 60 * 60 * 1000);
+    const wtYM     = `${wtBrasil.getFullYear()}-${String(wtBrasil.getMonth()+1).padStart(2,'0')}`;
+    if (wtYM !== mesYM) continue;
     const nome   = d.user_id?.name || '—';
     const val    = parseFloat(d.value || 0);
-    const dia    = new Date(wt).getDate();
+    const dia    = wtBrasil.getDate();
     const equipe = normalizeEquipe(CONFIG.EQUIPES[nome] || '—');
     if (!EQUIPES_VALIDAS_LOWER.has(equipe.toLowerCase())) continue; // vendedor fora do escopo
 
