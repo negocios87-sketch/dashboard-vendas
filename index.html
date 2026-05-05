@@ -237,7 +237,7 @@ function carregarLogo(){
   const exts = ['png','jpg','jpeg','PNG','JPG'];
   let idx = 0;
   const img = document.createElement('img');
-  function tenta(){ if(idx>=exts.length) return; img.src=`${FOTOS_BASE}/board_logo.${exts[idx++]}`; }
+  function tenta(){ if(idx>=exts.length) return; img.src=`${FOTOS_BASE}/logo_board.${exts[idx++]}`; }
   img.onload = () => {
     img.style.height='40px'; img.style.objectFit='contain';
     document.getElementById('logoFallback')?.remove();
