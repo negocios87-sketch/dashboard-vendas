@@ -208,6 +208,9 @@ const brlK   = v => v>=1000 ? 'R$'+(v/1000).toFixed(0)+'k' : 'R$'+v.toFixed(0);
 const ini    = n => { const p=n.trim().split(' '); return (p[0][0]+(p[p.length-1][0]||'')).toUpperCase(); };
 const status = m => document.getElementById('loadStatus').textContent = m;
 
+// ─── EQUIPES VÁLIDAS (whitelist) ─────────────────────────────
+const EQUIPES_VALIDAS = new Set(['Latam','Atlantis','Olympus','Elite','Sniper','Orion']);
+
 // ─── NORMALIZAÇÃO DE EQUIPE ───────────────────────────────────
 // MGM → Olympus (Ascensão também, legado)
 function normalizeEquipe(nome) {
@@ -348,7 +351,13 @@ async function carregarConfig() {
   for (const row of metasFiltradas) {
     const nome = row['Nome']?.trim();
     if (!nome) continue;
+
+    // SDR tem meta de reunião > 0 — ignora nos cálculos financeiros
+    const metaReunioes = parseFloat((row['Meta de Reunioes'] || '0').replace(',', '.')) || 0;
+    if (metaReunioes > 0) continue;
+
     const subarea = nomeParaSubarea[nome] || '—';
+    if (!EQUIPES_VALIDAS.has(subarea)) continue; // equipe fora do escopo
     equipes[nome] = subarea;
     const meta = parseBRL(row['Meta Financeira']);
     if (subarea !== '—') metasEq[subarea] = (metasEq[subarea] || 0) + meta;
@@ -426,6 +435,7 @@ function processar(deals) {
     const val    = parseFloat(d.value || 0);
     const dia    = new Date(wt).getDate();
     const equipe = normalizeEquipe(CONFIG.EQUIPES[nome] || '—');
+    if (!EQUIPES_VALIDAS.has(equipe)) continue; // vendedor fora do escopo
 
     if (!vendedores[nome]) vendedores[nome] = { valor:0, volume:0, equipe };
     vendedores[nome].valor  += val;
