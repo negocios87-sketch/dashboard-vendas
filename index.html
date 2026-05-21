@@ -234,7 +234,8 @@ function carregarLogo(){
   tenta();
 }
 
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvwO3Ag2f2cbkVgR1pJZp6fANQcbualGKlAG50fmOljuEGKZ1gJBbSAjRdO3SomXUEVQOWnTvlfHRd/pub?gid=1782440078&single=true&output=csv';
+const SHEET_CSV_URL   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvwO3Ag2f2cbkVgR1pJZp6fANQcbualGKlAG50fmOljuEGKZ1gJBbSAjRdO3SomXUEVQOWnTvlfHRd/pub?gid=1782440078&single=true&output=csv';
+const SHEET_METAS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvwO3Ag2f2cbkVgR1pJZp6fANQcbualGKlAG50fmOljuEGKZ1gJBbSAjRdO3SomXUEVQOWnTvlfHRd/pub?gid=0&single=true&output=csv';
 
 // Parseia CSV simples (vírgula ou ponto-e-vírgula), respeita aspas
 function parseCSV(text) {
@@ -285,26 +286,28 @@ async function carregarConfig(){
     }
   } catch(e) { console.warn('[config.json]', e.message); }
 
-  // 2. Equipes vêm do Google Sheets (mês/ano atual)
-  status('Carregando equipes do Sheets...');
-  try {
-    const now      = new Date();
-    const mesAtual = now.getMonth() + 1;
-    const anoAtual = now.getFullYear();
+  // 2. Equipes e Metas vêm do Google Sheets (mês/ano atual)
+  status('Carregando equipes e metas do Sheets...');
 
-    const r = await fetch(SHEET_CSV_URL);
-    if (!r.ok) throw new Error(`Sheets HTTP ${r.status}`);
-    const rows = parseCSV(await r.text());
+  const now      = new Date();
+  const mesAtual = now.getMonth() + 1;
+  const anoAtual = now.getFullYear();
 
-    // Tenta achar coluna de mês e ano independente de acentos/maiúsculas
-    const findCol = (row, ...candidates) => {
-      for (const c of candidates) {
-        for (const k of Object.keys(row)) {
-          if (k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === c) return row[k];
-        }
+  // Helper: busca coluna ignorando acentos/maiúsculas
+  const findCol = (row, ...candidates) => {
+    for (const c of candidates) {
+      for (const k of Object.keys(row)) {
+        if (k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === c) return row[k];
       }
-      return '';
-    };
+    }
+    return '';
+  };
+
+  // ── 2a. Planilha de colaboradores → EQUIPES ─────────────────
+  try {
+    const r = await fetch(SHEET_CSV_URL);
+    if (!r.ok) throw new Error(`Sheets equipes HTTP ${r.status}`);
+    const rows = parseCSV(await r.text());
 
     const doMes = rows.filter(row => {
       const mes = mesParaNumero(findCol(row, 'mes referencia', 'mes referencia'));
@@ -313,7 +316,7 @@ async function carregarConfig(){
     });
 
     const fonte = doMes.length ? doMes : rows;
-    if (!doMes.length) console.warn('[Sheets] Sem dados para', mesAtual, anoAtual, '— usando tudo como fallback');
+    if (!doMes.length) console.warn('[Equipes] Sem dados para', mesAtual, anoAtual, '— fallback total');
 
     const equipes = {};
     for (const row of fonte) {
@@ -321,12 +324,51 @@ async function carregarConfig(){
       const subarea = (findCol(row, 'subarea') || '').trim();
       if (nome && subarea) equipes[nome] = normalizeEquipe(subarea);
     }
-
     CONFIG.EQUIPES = equipes;
-    status(`Equipes OK — ${Object.keys(equipes).length} colaboradores (${mesAtual}/${anoAtual})`);
+    status(`Equipes OK — ${Object.keys(equipes).length} colaboradores`);
   } catch(e) {
-    console.error('[Sheets]', e);
-    status(`⚠️ Erro ao carregar Sheets: ${e.message}`);
+    console.error('[Equipes]', e);
+    status(`⚠️ Erro equipes: ${e.message}`);
+  }
+
+  // ── 2b. Planilha de metas → METAS por equipe ────────────────
+  // Colunas: Ano | Mes | Dias Uteis | Nome | Meta de Reunioes | Meta Financeira | % de Rampagem
+  // Regra: só closers (sem Meta de Reuniões) entram na meta financeira da equipe
+  try {
+    const r = await fetch(SHEET_METAS_URL);
+    if (!r.ok) throw new Error(`Sheets metas HTTP ${r.status}`);
+    const rows = parseCSV(await r.text());
+
+    const doMes = rows.filter(row => {
+      const ano = parseInt(findCol(row, 'ano') || '0');
+      const mes = mesParaNumero(findCol(row, 'mes') || findCol(row, 'mês'));
+      return ano === anoAtual && mes === mesAtual;
+    });
+
+    if (!doMes.length) {
+      console.warn('[Metas] Sem dados para', mesAtual, anoAtual);
+    }
+
+    const metasNorm = {};
+    for (const row of doMes) {
+      const nome       = (findCol(row, 'nome') || '').trim();
+      const metaReu    = parseFloat((findCol(row, 'meta de reunioes', 'meta de reuniões') || '0').replace(',','.'));
+      const metaFin    = parseFloat((findCol(row, 'meta financeira') || '0').replace(/[^\d,.]/g,'').replace(',','.'));
+      const equipe     = normalizeEquipe(CONFIG.EQUIPES[nome] || '');
+
+      // Só closers (sem meta de reunião) somam na meta da equipe
+      const isCloser = !metaReu || metaReu === 0;
+      if (isCloser && equipe && equipe !== '—' && metaFin > 0) {
+        metasNorm[equipe] = (metasNorm[equipe] || 0) + metaFin;
+      }
+    }
+
+    CONFIG.METAS = metasNorm;
+    status(`Metas OK — ${Object.keys(metasNorm).length} equipes`);
+    console.log('[Metas]', metasNorm);
+  } catch(e) {
+    console.error('[Metas]', e);
+    status(`⚠️ Erro metas: ${e.message}`);
   }
 }
 
