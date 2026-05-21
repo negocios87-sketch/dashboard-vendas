@@ -189,14 +189,10 @@ header{display:flex;justify-content:space-between;align-items:center;flex-shrink
 <script>
 Chart.register(ChartDataLabels);
 
-const API_TOKEN   = '2e35ac1335eeff683280d84a802eb97c29add408';
-const FILTER_ID   = 74674;
-const ORG         = 'boardacademy';
-const CAMPO_MULTI = '7e0e43c2734751f77be292a72527f638a850ad50';
 const REFRESH_MS  = 5 * 60 * 1000;
 const FOTOS_DIR   = 'fotos';
 
-let CONFIG = {API_TOKEN,FILTER_ID,ORG,CAMPO_MULTI,REFRESH_MS,FOTOS_DIR,METAS:{},EQUIPES:{},MKT:{}};
+let CONFIG = {REFRESH_MS,FOTOS_DIR,METAS:{},EQUIPES:{},MKT:{}};
 
 const AVATAR_CORES=['#E91E63','#9C27B0','#2196F3','#00BCD4','#4CAF50','#FF5722','#FF9800','#3F51B5','#009688','#673AB7'];
 const GC='rgba(255,255,255,0.04)', TC='#444';
