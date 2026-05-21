@@ -60,12 +60,14 @@ header{display:flex;justify-content:space-between;align-items:center;flex-shrink
 .ranking-panel{flex:1.6;padding:12px 16px;display:flex;flex-direction:column;min-height:0}
 .ranking-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;flex-shrink:0}
 .ranking-list{flex:1;display:flex;flex-direction:column;justify-content:space-around;min-height:0;gap:5px}
+/* 3 colunas: nome | barra | % ating */
 .eq-row{display:grid;grid-template-columns:95px 1fr 72px;align-items:center;gap:10px;flex-shrink:0}
 .eq-name{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .eq-bar-wrap{position:relative;height:22px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden}
 .eq-bar{height:100%;border-radius:4px;transition:width 1s cubic-bezier(.4,0,.2,1);position:relative;min-width:3px}
 .eq-bar::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12) 50%,transparent);animation:shimmer 3s infinite}
 @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+/* Label dentro da barra = valor realizado */
 .eq-bar-lbl{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;color:rgba(0,0,0,.65);line-height:1}
 .bar-hi{background:linear-gradient(90deg,#7a5c00,#FFD700)}
 .bar-md{background:linear-gradient(90deg,#5c3d00,#CDA020)}
@@ -73,6 +75,7 @@ header{display:flex;justify-content:space-between;align-items:center;flex-shrink
 .pct-hi{color:#FFD700}
 .pct-md{color:#CDA020}
 .pct-lo{color:#8B7030}
+/* Coluna direita: % ating em destaque */
 .eq-numbers{text-align:right}
 .eq-pct-big{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;line-height:1.1}
 .eq-meta-txt{font-size:9px;color:var(--muted);margin-top:1px}
@@ -186,33 +189,27 @@ header{display:flex;justify-content:space-between;align-items:center;flex-shrink
 <script>
 Chart.register(ChartDataLabels);
 
-// ─── CONFIGURAÇÕES ────────────────────────────────────────────
-// API_TOKEN e FILTER_ID ficam no servidor (app.py) — não expostos aqui
-const REFRESH_MS = 5 * 60 * 1000;
+const API_TOKEN   = '2e35ac1335eeff683280d84a802eb97c29add408';
+const FILTER_ID   = 74674;
+const ORG         = 'boardacademy';
+const CAMPO_MULTI = '7e0e43c2734751f77be292a72527f638a850ad50';
+const REFRESH_MS  = 5 * 60 * 1000;
+const FOTOS_DIR   = 'fotos';
 
-// Fotos direto do GitHub (raw)
-const FOTOS_BASE = 'https://raw.githubusercontent.com/negocios87-sketch/fotos_time_comercial/main';
+let CONFIG = {API_TOKEN,FILTER_ID,ORG,CAMPO_MULTI,REFRESH_MS,FOTOS_DIR,METAS:{},EQUIPES:{},MKT:{}};
 
-// Google Sheets publicados como CSV
-const CSV_METAS  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvwO3Ag2f2cbkVgR1pJZp6fANQcbualGKlAG50fmOljuEGKZ1gJBbSAjRdO3SomXUEVQOWnTvlfHRd/pub?gid=0&single=true&output=csv';
-const CSV_COLAB  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvwO3Ag2f2cbkVgR1pJZp6fANQcbualGKlAG50fmOljuEGKZ1gJBbSAjRdO3SomXUEVQOWnTvlfHRd/pub?gid=1782440078&single=true&output=csv';
-const CSV_LEADS  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvwO3Ag2f2cbkVgR1pJZp6fANQcbualGKlAG50fmOljuEGKZ1gJBbSAjRdO3SomXUEVQOWnTvlfHRd/pub?gid=1333680676&single=true&output=csv';
-
-let CONFIG = { METAS:{}, EQUIPES:{}, MKT:{} };
-
-const AVATAR_CORES = ['#E91E63','#9C27B0','#2196F3','#00BCD4','#4CAF50','#FF5722','#FF9800','#3F51B5','#009688','#673AB7'];
-const GC = 'rgba(255,255,255,0.04)', TC = '#444';
+const AVATAR_CORES=['#E91E63','#9C27B0','#2196F3','#00BCD4','#4CAF50','#FF5722','#FF9800','#3F51B5','#009688','#673AB7'];
+const GC='rgba(255,255,255,0.04)', TC='#444';
 
 const brl    = v => 'R$\u00A0' + v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
 const brlK   = v => v>=1000 ? 'R$'+(v/1000).toFixed(0)+'k' : 'R$'+v.toFixed(0);
 const ini    = n => { const p=n.trim().split(' '); return (p[0][0]+(p[p.length-1][0]||'')).toUpperCase(); };
 const status = m => document.getElementById('loadStatus').textContent = m;
 
-// ─── EQUIPES VÁLIDAS (whitelist) ─────────────────────────────
-const EQUIPES_VALIDAS_LOWER = new Set(['latam','atlantis','olympus','elite','sniper','orion']);
-
-// ─── NORMALIZAÇÃO DE EQUIPE ───────────────────────────────────
-// MGM → Olympus (Ascensão também, legado)
+// ─────────────────────────────────────────────────────────────
+// Normaliza nomes de equipe: MGM e Ascensão → Olympus
+// Aplicado tanto nas chaves do config quanto nos deals do Pipedrive
+// ─────────────────────────────────────────────────────────────
 function normalizeEquipe(nome) {
   if (!nome) return '—';
   const n = nome.trim();
@@ -220,406 +217,289 @@ function normalizeEquipe(nome) {
   return n;
 }
 
-// ─── TOOLTIP ─────────────────────────────────────────────────
 const tt = document.getElementById('tooltip');
 function showTT(e,label,val){
   document.getElementById('tt-label').textContent=label;
   document.getElementById('tt-val').textContent=val;
   tt.style.opacity='1';
   tt.style.left=(e.clientX+14)+'px';
-  tt.style.top=(e.clientY-10)+'px';
+  tt.style.top =(e.clientY-10)+'px';
 }
 function hideTT(){ tt.style.opacity='0'; }
 
-// ─── LOGO (GitHub raw) ────────────────────────────────────────
 function carregarLogo(){
-  const box = document.getElementById('logoBox');
-  const exts = ['png','jpg','jpeg','PNG','JPG'];
-  let idx = 0;
-  const img = document.createElement('img');
-  function tenta(){ if(idx>=exts.length) return; img.src=`${FOTOS_BASE}/logo_board.${exts[idx++]}`; }
-  img.onload = () => {
-    img.style.height='40px'; img.style.objectFit='contain';
-    document.getElementById('logoFallback')?.remove();
-    box.appendChild(img);
-  };
-  img.onerror = () => tenta();
+  const box=document.getElementById('logoBox');
+  const exts=['png','jpg','jpeg','PNG','JPG'];
+  let idx=0;
+  const img=document.createElement('img');
+  function tenta(){ if(idx>=exts.length)return; img.src=`${FOTOS_DIR}/board_logo.${exts[idx++]}`; }
+  img.onload=()=>{ img.style.height='40px'; img.style.objectFit='contain'; document.getElementById('logoFallback')?.remove(); box.appendChild(img); };
+  img.onerror=()=>tenta();
   tenta();
 }
 
-// ─── CSV PARSER (robusto pra Google Sheets) ───────────────────
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvwO3Ag2f2cbkVgR1pJZp6fANQcbualGKlAG50fmOljuEGKZ1gJBbSAjRdO3SomXUEVQOWnTvlfHRd/pub?gid=1782440078&single=true&output=csv';
+
+// Parseia CSV simples (vírgula ou ponto-e-vírgula), respeita aspas
 function parseCSV(text) {
-  const rows = [];
-  const lines = text.trim().split('\n');
-  if (!lines.length) return rows;
-
-  function parseLine(line) {
-    const result = [];
-    let i = 0, field = '';
-    while (i <= line.length) {
-      if (i === line.length) { result.push(field.trim()); break; }
-      if (line[i] === '"') {
-        i++;
-        while (i < line.length) {
-          if (line[i] === '"' && line[i+1] === '"') { field += '"'; i += 2; }
-          else if (line[i] === '"') { i++; break; }
-          else { field += line[i++]; }
-        }
-        if (i < line.length && line[i] === ',') { result.push(field.trim()); field=''; i++; }
-        else if (i === line.length) { result.push(field.trim()); }
-      } else if (line[i] === ',') {
-        result.push(field.trim()); field=''; i++;
-      } else {
-        field += line[i++];
-      }
+  const lines = text.trim().split(/\r?\n/);
+  if (!lines.length) return [];
+  const delim = lines[0].includes(';') ? ';' : ',';
+  const headers = lines[0].split(delim).map(h => h.replace(/^"|"$/g,'').trim());
+  return lines.slice(1).map(line => {
+    const cols = []; let cur = ''; let inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === delim && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
     }
-    return result;
-  }
-
-  const headers = parseLine(lines[0]);
-  for (let l = 1; l < lines.length; l++) {
-    if (!lines[l].trim()) continue;
-    const vals = parseLine(lines[l]);
+    cols.push(cur.trim());
     const obj = {};
-    headers.forEach((h, i) => obj[h] = (vals[i] || '').trim());
-    rows.push(obj);
-  }
-  return rows;
-}
-
-// ─── CONVERTE MÊS TEXTO/NÚMERO → número 1-12 ─────────────────
-function mesParaNum(m) {
-  if (!m) return 0;
-  const n = parseInt(m, 10);
-  if (!isNaN(n) && n >= 1 && n <= 12) return n;
-  const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  const idx = meses.findIndex(x => x === m.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
-  return idx >= 0 ? idx + 1 : 0;
-}
-
-// ─── PARSE VALOR MONETÁRIO BR (R$ 1.234,56 → 1234.56) ────────
-function parseBRL(str) {
-  if (!str) return 0;
-  const clean = str.replace(/[R$\s.]/g,'').replace(',','.');
-  return parseFloat(clean) || 0;
-}
-
-// ─── CARREGA CONFIGURAÇÕES DOS SHEETS ────────────────────────
-async function carregarConfig() {
-  status('Lendo configurações do Google Sheets...');
-  const now = new Date();
-  const anoAtual = now.getFullYear();
-  const mesAtual = now.getMonth() + 1;
-
-  const [rMetas, rColab, rLeads] = await Promise.all([
-    fetch(CSV_METAS + '&t=' + Date.now()),
-    fetch(CSV_COLAB + '&t=' + Date.now()),
-    fetch(CSV_LEADS + '&t=' + Date.now())
-  ]);
-
-  if (!rMetas.ok || !rColab.ok || !rLeads.ok)
-    throw new Error('Falha ao buscar um dos Sheets. Verifique se estão publicados.');
-
-  const [txtMetas, txtColab, txtLeads] = await Promise.all([
-    rMetas.text(), rColab.text(), rLeads.text()
-  ]);
-
-  // ── 1. COLABORADORES: nome → subarea (equipe) ──
-  const colabRows = parseCSV(txtColab);
-  const nomeParaSubarea = {};
-  for (const row of colabRows) {
-    const nome    = row['Nome']?.trim();
-    const subarea = row['Subarea']?.trim();
-    if (nome && subarea) nomeParaSubarea[nome] = normalizeEquipe(subarea);
-  }
-
-  // ── 2. METAS: filtra mês/ano atual → EQUIPES + METAS por equipe ──
-  const metasRows = parseCSV(txtMetas);
-  const metasFiltradas = metasRows.filter(r => {
-    const ano = parseInt(r['Ano'], 10);
-    const mes = mesParaNum(r['Mes']);
-    return ano === anoAtual && mes === mesAtual;
+    headers.forEach((h, i) => { obj[h] = (cols[i] || '').replace(/^"|"$/g,'').trim(); });
+    return obj;
   });
-
-  if (!metasFiltradas.length) {
-    status(`⚠️ Nenhuma meta encontrada para ${mesAtual}/${anoAtual}`);
-  }
-
-  const equipes  = {};  // nome vendedor → equipe normalizada
-  const metasEq  = {};  // equipe → soma Meta Financeira do mês
-
-  for (const row of metasFiltradas) {
-    const nome = row['Nome']?.trim();
-    if (!nome) continue;
-
-    // SDR tem meta de reunião > 0 — ignora nos cálculos financeiros
-    const metaReunioes = parseFloat((row['Meta de Reunioes'] || '0').replace(',', '.')) || 0;
-    if (metaReunioes > 0) continue;
-
-    const subarea = nomeParaSubarea[nome] || '—';
-    if (!EQUIPES_VALIDAS_LOWER.has(subarea.toLowerCase())) continue; // equipe fora do escopo
-    equipes[nome] = subarea;
-    const meta = parseBRL(row['Meta Financeira']);
-    if (subarea !== '—') metasEq[subarea] = (metasEq[subarea] || 0) + meta;
-  }
-
-  CONFIG.EQUIPES = equipes;
-  CONFIG.METAS   = metasEq;
-
-  // ── 3. MKT_LEADS: filtra mês atual, constrói série diária ──
-  const leadsRows = parseCSV(txtLeads);
-  const leadsMap  = {};
-  let   leadsD1   = null;
-
-  const ontem = new Date(now);
-  ontem.setDate(ontem.getDate() - 1);
-
-  for (const row of leadsRows) {
-    const dataStr = row['data']?.trim();
-    if (!dataStr) continue;
-
-    let d;
-    if (dataStr.includes('/')) {
-      // formato DD/MM/YYYY
-      const [dd, mm, yyyy] = dataStr.split('/').map(Number);
-      d = new Date(yyyy, mm - 1, dd);
-    } else {
-      // formato YYYY-MM-DD ou similar
-      d = new Date(dataStr);
-    }
-    if (isNaN(d)) continue;
-
-    const qtd = parseInt(row['leads criados'] || '0', 10);
-
-    if (d.getFullYear() === anoAtual && d.getMonth() + 1 === mesAtual) {
-      leadsMap[d.getDate()] = qtd;
-    }
-    if (d.toDateString() === ontem.toDateString()) {
-      leadsD1 = qtd;
-    }
-  }
-
-  const hoje    = now.getDate();
-  const diasArr = Array.from({length: hoje}, (_, i) => i + 1);
-  const leadsArr = diasArr.map(d => leadsMap[d] || 0);
-  const total   = leadsArr.reduce((a, b) => a + b, 0);
-
-  CONFIG.MKT = {
-    dias:           diasArr,
-    leads:          leadsArr,
-    leads_d1:       leadsD1 ?? '—',
-    leads_total_mes: total
-  };
-
-  status(`Config OK — ${Object.keys(CONFIG.EQUIPES).length} colaboradores`);
 }
 
-// ─── PIPEDRIVE (via servidor — chave nunca exposta no browser) ─
-async function fetchPipedrive() {
+// Normaliza nome do mês (aceita número ou nome em PT)
+function mesParaNumero(val) {
+  if (!val) return null;
+  const v = val.toString().trim();
+  if (/^\d+$/.test(v)) return parseInt(v);
+  const meses = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const norm = v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const idx = meses.findIndex(m => m === norm);
+  return idx >= 0 ? idx + 1 : null;
+}
+
+async function carregarConfig(){
+  status('Lendo configurações...');
+
+  // 1. Metas e MKT vêm do config.json
+  try {
+    const r = await fetch('config.json?t='+Date.now());
+    if (r.ok) {
+      const cfg = await r.json();
+      const metasNorm = {};
+      for (const [k, v] of Object.entries(cfg.metas || {})) {
+        const key = normalizeEquipe(k);
+        metasNorm[key] = (metasNorm[key] || 0) + v;
+      }
+      CONFIG.METAS = metasNorm;
+      CONFIG.MKT   = cfg.marketing || {};
+    }
+  } catch(e) { console.warn('[config.json]', e.message); }
+
+  // 2. Equipes vêm do Google Sheets (mês/ano atual)
+  status('Carregando equipes do Sheets...');
+  try {
+    const now      = new Date();
+    const mesAtual = now.getMonth() + 1;
+    const anoAtual = now.getFullYear();
+
+    const r = await fetch(SHEET_CSV_URL);
+    if (!r.ok) throw new Error(`Sheets HTTP ${r.status}`);
+    const rows = parseCSV(await r.text());
+
+    // Tenta achar coluna de mês e ano independente de acentos/maiúsculas
+    const findCol = (row, ...candidates) => {
+      for (const c of candidates) {
+        for (const k of Object.keys(row)) {
+          if (k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === c) return row[k];
+        }
+      }
+      return '';
+    };
+
+    const doMes = rows.filter(row => {
+      const mes = mesParaNumero(findCol(row, 'mes referencia', 'mes referencia'));
+      const ano = parseInt(findCol(row, 'ano referencia', 'ano referencia') || '0');
+      return mes === mesAtual && ano === anoAtual;
+    });
+
+    const fonte = doMes.length ? doMes : rows;
+    if (!doMes.length) console.warn('[Sheets] Sem dados para', mesAtual, anoAtual, '— usando tudo como fallback');
+
+    const equipes = {};
+    for (const row of fonte) {
+      const nome    = (findCol(row, 'nome') || '').trim();
+      const subarea = (findCol(row, 'subarea') || '').trim();
+      if (nome && subarea) equipes[nome] = normalizeEquipe(subarea);
+    }
+
+    CONFIG.EQUIPES = equipes;
+    status(`Equipes OK — ${Object.keys(equipes).length} colaboradores (${mesAtual}/${anoAtual})`);
+  } catch(e) {
+    console.error('[Sheets]', e);
+    status(`⚠️ Erro ao carregar Sheets: ${e.message}`);
+  }
+}
+
+async function fetchPipedrive(){
   status('Conectando ao Pipedrive...');
-  const r = await fetch('/api/deals');
-  if (!r.ok) throw new Error(`Pipedrive HTTP ${r.status}`);
-  return await r.json();
+  const url=`https://${CONFIG.ORG}.pipedrive.com/api/v1/deals?filter_id=${CONFIG.FILTER_ID}&status=won&limit=500&start=0&api_token=${CONFIG.API_TOKEN}`;
+  const r=await fetch(url);
+  if(!r.ok) throw new Error(`Pipedrive HTTP ${r.status}`);
+  return (await r.json()).data||[];
 }
 
-// ─── PROCESSAMENTO ────────────────────────────────────────────
-function processar(deals) {
-  const now   = new Date();
-  const mesYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const vendedores = {}, porDia = {};
+function processar(deals){
+  const now=new Date();
+  const mesYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const vendedores={}, porDia={};
 
-  for (const d of deals) {
-    const wt = d.won_time || '';
-    if (!wt) continue;
-    // won_time vem em UTC — converte para Brasília (UTC-3)
-    const wtBrasil = new Date(new Date(wt + 'Z').getTime() - 3 * 60 * 60 * 1000);
-    const wtYM     = `${wtBrasil.getFullYear()}-${String(wtBrasil.getMonth()+1).padStart(2,'0')}`;
-    if (wtYM !== mesYM) continue;
-    const nome   = d.user_id?.name || '—';
-    const val    = parseFloat(d.value || 0);
-    const dia    = wtBrasil.getDate();
+  for(const d of deals){
+    const wt=d.won_time||'';
+    if(!wt.startsWith(mesYM)) continue;
+    const nome=d.user_id?.name||'—';
+    const val=parseFloat(d.value||0);
+    const dia=new Date(wt).getDate();
+    // Normaliza equipe também no processamento dos deals
     const equipe = normalizeEquipe(CONFIG.EQUIPES[nome] || '—');
-    if (!EQUIPES_VALIDAS_LOWER.has(equipe.toLowerCase())) continue; // vendedor fora do escopo
-
-    if (!vendedores[nome]) vendedores[nome] = { valor:0, volume:0, equipe };
-    vendedores[nome].valor  += val;
-    vendedores[nome].volume += 1;
-
-    if (!porDia[dia]) porDia[dia] = { valor:0, volume:0 };
-    porDia[dia].valor  += val;
-    porDia[dia].volume += 1;
+    if(!vendedores[nome]) vendedores[nome]={valor:0,volume:0,equipe};
+    vendedores[nome].valor+=val; vendedores[nome].volume+=1;
+    if(!porDia[dia]) porDia[dia]={valor:0,volume:0};
+    porDia[dia].valor+=val; porDia[dia].volume+=1;
   }
 
-  const hoje        = now.getDate();
-  const dias        = Array.from({length:hoje}, (_,i) => i+1);
-  const valBrutoDia = dias.map(d => porDia[d]?.valor  || 0);
-  const volDia      = dias.map(d => porDia[d]?.volume || 0);
+  const hoje=now.getDate();
+  const dias        = Array.from({length:hoje},(_,i)=>i+1);
+  const valBrutoDia = dias.map(d=>porDia[d]?.valor ||0);
+  const volDia      = dias.map(d=>porDia[d]?.volume||0);
 
-  const closers = Object.entries(vendedores)
-    .map(([nome,v]) => ({nome,...v}))
-    .sort((a,b) => b.valor - a.valor);
+  const closers=Object.entries(vendedores).map(([nome,v])=>({nome,...v})).sort((a,b)=>b.valor-a.valor);
 
-  // Agrupa por equipe
-  const eqMap = {};
-  for (const c of closers) {
-    const eq = c.equipe;
-    if (!eqMap[eq]) eqMap[eq] = { realizado:0, meta: CONFIG.METAS[eq] || 0 };
-    eqMap[eq].realizado += c.valor;
+  const eqMap={};
+  for(const c of closers){
+    const eq=c.equipe;
+    if(!eqMap[eq]) eqMap[eq]={realizado:0,meta:CONFIG.METAS[eq]||0};
+    eqMap[eq].realizado+=c.valor;
   }
-  // Equipes com meta mas sem venda ainda
-  for (const [eq, meta] of Object.entries(CONFIG.METAS))
-    if (!eqMap[eq]) eqMap[eq] = { realizado:0, meta };
+  for(const [eq,meta] of Object.entries(CONFIG.METAS))
+    if(!eqMap[eq]) eqMap[eq]={realizado:0,meta};
 
-  const tabela = Object.entries(eqMap)
-    .map(([equipe,d]) => ({
-      equipe,
-      meta:      d.meta,
-      realizado: d.realizado,
-      pct:       d.meta > 0 ? d.realizado / d.meta * 100 : 0
-    }))
-    .sort((a,b) => b.realizado - a.realizado);
+  // ── ORDENAÇÃO POR VALOR REALIZADO (maior → menor) ──────────
+  const tabela=Object.entries(eqMap)
+    .map(([equipe,d])=>({equipe,meta:d.meta,realizado:d.realizado,pct:d.meta>0?d.realizado/d.meta*100:0}))
+    .sort((a,b)=>b.realizado-a.realizado);
 
-  closers.forEach(c => {
-    const eq = eqMap[c.equipe];
-    c.pctEquipe = (eq && eq.meta > 0) ? Math.round(eq.realizado / eq.meta * 100) : null;
+  closers.forEach(c=>{
+    const eq=eqMap[c.equipe];
+    c.pctEquipe=(eq&&eq.meta>0)?Math.round(eq.realizado/eq.meta*100):null;
   });
 
-  return {dias, valBrutoDia, volDia, closers, tabela};
+  return {dias,valBrutoDia,volDia,closers,tabela};
 }
 
-// ─── FOTOS (GitHub raw) ───────────────────────────────────────
-function carregarFoto(nome, onSuccess, onFail) {
-  const exts = ['jpg','jpeg','png','JPG','JPEG','PNG'];
-  let idx = 0;
-  const img = document.createElement('img');
-  function tenta() {
-    if (idx >= exts.length) { onFail(); return; }
-    img.src = `${FOTOS_BASE}/${encodeURIComponent(nome)}.${exts[idx++]}`;
-  }
-  img.onload  = () => onSuccess(img);
-  img.onerror = () => tenta();
+function carregarFoto(nome,onSuccess,onFail){
+  const exts=['jpg','jpeg','png','JPG','JPEG','PNG'];
+  let idx=0;
+  const img=document.createElement('img');
+  function tenta(){ if(idx>=exts.length){onFail();return;} img.src=`${FOTOS_DIR}/${nome}.${exts[idx++]}`; }
+  img.onload=()=>onSuccess(img);
+  img.onerror=()=>tenta();
   tenta();
 }
 
-// ─── BUILD: CARROSSEL ─────────────────────────────────────────
-function buildCarousel(closers, tabela) {
-  const eqPct = {};
-  tabela.forEach(t => eqPct[t.equipe] = Math.round(t.pct));
-  const track = document.getElementById('carouselTrack');
-  track.innerHTML = '';
-  [...closers,...closers].forEach((c,i) => {
-    const rank = (i % closers.length) + 1;
-    const cor  = AVATAR_CORES[rank % AVATAR_CORES.length];
-    const pctEq = c.equipe !== '—' ? eqPct[c.equipe] : null;
-    const card = document.createElement('div');
-    card.className = 'closer-card';
-
-    const wrap = document.createElement('div'); wrap.className = 'c-avatar-wrap';
-    const ph   = document.createElement('div'); ph.className   = 'c-initials';
-    ph.textContent = ini(c.nome);
-    ph.style.cssText = `background:${cor};width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000`;
+function buildCarousel(closers,tabela){
+  const eqPct={};
+  tabela.forEach(t=>eqPct[t.equipe]=Math.round(t.pct));
+  const track=document.getElementById('carouselTrack');
+  track.innerHTML='';
+  [...closers,...closers].forEach((c,i)=>{
+    const rank=(i%closers.length)+1;
+    const cor=AVATAR_CORES[rank%AVATAR_CORES.length];
+    const pctEq=c.equipe!=='—'?eqPct[c.equipe]:null;
+    const card=document.createElement('div');
+    card.className='closer-card';
+    const wrap=document.createElement('div'); wrap.className='c-avatar-wrap';
+    const ph=document.createElement('div'); ph.className='c-initials';
+    ph.textContent=ini(c.nome);
+    ph.style.cssText=`background:${cor};width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000`;
     wrap.appendChild(ph);
-
-    const badge = document.createElement('div');
-    badge.className = 'c-rank-badge' + (rank===1?' gold':rank===2?' silver':rank===3?' bronze':'');
-    badge.textContent = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'#'+rank;
-    wrap.appendChild(badge);
-    card.appendChild(wrap);
-
-    const info = document.createElement('div'); info.className = 'closer-info';
-    info.innerHTML = `<div class="closer-name">${c.nome}</div><div class="closer-meta">${c.equipe!=='—'?`<span class="closer-equipe">${c.equipe}</span>`:''} ${pctEq!==null?`<span class="closer-pct">· time ${pctEq}%</span>`:''}</div>`;
+    const badge=document.createElement('div');
+    badge.className='c-rank-badge'+(rank===1?' gold':rank===2?' silver':rank===3?' bronze':'');
+    badge.textContent=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'#'+rank;
+    wrap.appendChild(badge); card.appendChild(wrap);
+    const info=document.createElement('div'); info.className='closer-info';
+    info.innerHTML=`<div class="closer-name">${c.nome}</div><div class="closer-meta">${c.equipe!=='—'?`<span class="closer-equipe">${c.equipe}</span>`:''} ${pctEq!==null?`<span class="closer-pct">· time ${pctEq}%</span>`:''}</div>`;
     card.appendChild(info);
-
-    const right = document.createElement('div'); right.className = 'closer-right';
-    right.innerHTML = `<div class="closer-val">${brl(c.valor)}</div><div class="closer-vol">${c.volume} venda${c.volume!==1?'s':''}</div>`;
-    card.appendChild(right);
-    track.appendChild(card);
-
-    carregarFoto(c.nome, img => {
-      img.style.cssText = 'width:44px;height:44px;border-radius:50%;object-fit:cover';
-      ph.replaceWith(img);
-    }, () => {});
+    const right=document.createElement('div'); right.className='closer-right';
+    right.innerHTML=`<div class="closer-val">${brl(c.valor)}</div><div class="closer-vol">${c.volume} venda${c.volume!==1?'s':''}</div>`;
+    card.appendChild(right); track.appendChild(card);
+    carregarFoto(c.nome, img=>{ img.style.cssText='width:44px;height:44px;border-radius:50%;object-fit:cover'; ph.replaceWith(img); }, ()=>{});
   });
 }
 
-// ─── BUILD: RANKING EQUIPES ───────────────────────────────────
-function buildRanking(tabela) {
-  const list = document.getElementById('rankingList');
-  list.innerHTML = '';
-  const maxRealizado = Math.max(...tabela.map(r => r.realizado), 1);
-  tabela.forEach((r, idx) => {
-    const pct    = Math.round(r.pct);
-    const barW   = Math.round(r.realizado / maxRealizado * 100);
-    const barCls = pct>=80?'bar-hi':pct>=40?'bar-md':'bar-lo';
-    const pctCls = pct>=80?'pct-hi':pct>=40?'pct-md':'pct-lo';
+// ─────────────────────────────────────────────────────────────
+// RANKING — ordenado por valor realizado
+// Barra mostra o valor realizado; coluna direita = % atingimento
+// ─────────────────────────────────────────────────────────────
+function buildRanking(tabela){
+  const list=document.getElementById('rankingList');
+  list.innerHTML='';
+  const maxRealizado = Math.max(...tabela.map(r=>r.realizado), 1);
+  tabela.forEach((r,idx)=>{
+    const pct=Math.round(r.pct);
+    const barW=Math.round(r.realizado / maxRealizado * 100); // largura proporcional ao valor
+    const barCls=pct>=80?'bar-hi':pct>=40?'bar-md':'bar-lo';
+    const pctCls=pct>=80?'pct-hi':pct>=40?'pct-md':'pct-lo';
 
-    const row  = document.createElement('div'); row.className  = 'eq-row';
-    const name = document.createElement('div'); name.className = 'eq-name';
-    name.style.color = idx===0?'var(--gold)':'#f0f0f0';
-    name.textContent = r.equipe;
+    const row=document.createElement('div'); row.className='eq-row';
 
-    const bw  = document.createElement('div'); bw.className  = 'eq-bar-wrap';
-    const bar = document.createElement('div'); bar.className = `eq-bar ${barCls}`;
-    bar.style.width = '0%';
-    const lbl = document.createElement('div'); lbl.className = 'eq-bar-lbl';
-    lbl.textContent = brl(r.realizado);
+    // Coluna 1: nome da equipe
+    const name=document.createElement('div'); name.className='eq-name';
+    name.style.color=idx===0?'var(--gold)':'#f0f0f0'; name.textContent=r.equipe;
+
+    // Coluna 2: barra proporcional ao valor realizado
+    const bw=document.createElement('div'); bw.className='eq-bar-wrap';
+    const bar=document.createElement('div'); bar.className=`eq-bar ${barCls}`; bar.style.width='0%';
+    const lbl=document.createElement('div'); lbl.className='eq-bar-lbl'; lbl.textContent=brl(r.realizado);
     bar.appendChild(lbl); bw.appendChild(bar);
-    setTimeout(() => { bar.style.width = barW + '%'; }, 100 + idx * 80);
+    setTimeout(()=>{ bar.style.width=barW+'%'; },100+idx*80);
 
-    const nums = document.createElement('div'); nums.className = 'eq-numbers';
-    nums.innerHTML = `<div class="eq-pct-big ${pctCls}">${pct}%</div><div class="eq-meta-txt">de ${brl(r.meta)}</div>`;
+    // Coluna 3: % atingimento em destaque + meta como apoio
+    const nums=document.createElement('div'); nums.className='eq-numbers';
+    nums.innerHTML=`<div class="eq-pct-big ${pctCls}">${pct}%</div><div class="eq-meta-txt">de ${brl(r.meta)}</div>`;
 
-    row.appendChild(name); row.appendChild(bw); row.appendChild(nums);
-    list.appendChild(row);
+    row.appendChild(name); row.appendChild(bw); row.appendChild(nums); list.appendChild(row);
   });
 }
 
-// ─── BUILD: TOP 3 ─────────────────────────────────────────────
-function buildTop3(closers) {
-  const container = document.getElementById('top3List');
-  container.className = 'top3-podium'; container.innerHTML = '';
-  const top3   = closers.slice(0,3);
-  const medals = ['🥇','🥈','🥉'];
-  const pClass = ['p1','p2','p3'];
-  const cores  = ['#E91E63','#9C27B0','#2196F3'];
-
-  top3.forEach((c,i) => {
-    const item   = document.createElement('div'); item.className   = `top3-item ${pClass[i]}`;
-    const bubble = document.createElement('div'); bubble.className = 'top3-bubble';
-    const ph     = document.createElement('div'); ph.className     = 't3-initials';
-    ph.textContent = ini(c.nome);
-    ph.style.cssText = `background:${cores[i]};width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#000`;
+function buildTop3(closers){
+  const container=document.getElementById('top3List');
+  container.className='top3-podium'; container.innerHTML='';
+  const top3=closers.slice(0,3);
+  const medals=['🥇','🥈','🥉'];
+  const pClass=['p1','p2','p3'];
+  const cores=['#E91E63','#9C27B0','#2196F3'];
+  top3.forEach((c,i)=>{
+    const item=document.createElement('div'); item.className=`top3-item ${pClass[i]}`;
+    const bubble=document.createElement('div'); bubble.className='top3-bubble';
+    const ph=document.createElement('div'); ph.className='t3-initials';
+    ph.textContent=ini(c.nome);
+    ph.style.cssText=`background:${cores[i]};width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#000`;
     bubble.appendChild(ph);
-
-    const medal = document.createElement('div'); medal.className = 'top3-medal';
-    medal.textContent = medals[i];
+    const medal=document.createElement('div'); medal.className='top3-medal'; medal.textContent=medals[i];
     bubble.appendChild(medal); item.appendChild(bubble);
-
-    const label = document.createElement('div'); label.className = 'top3-label';
-    label.innerHTML = `<div class="top3-nome">${c.nome.split(' ')[0]}</div><div class="top3-valor">${brl(c.valor)}</div>`;
+    const label=document.createElement('div'); label.className='top3-label';
+    label.innerHTML=`<div class="top3-nome">${c.nome.split(' ')[0]}</div><div class="top3-valor">${brl(c.valor)}</div>`;
     item.appendChild(label); container.appendChild(item);
-
-    carregarFoto(c.nome, img => {
-      img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover';
-      ph.replaceWith(img);
-    }, () => {});
+    carregarFoto(c.nome,img=>{ img.style.cssText='width:100%;height:100%;border-radius:50%;object-fit:cover'; ph.replaceWith(img); },()=>{});
   });
 }
 
-// ─── BUILD: GRÁFICOS ─────────────────────────────────────────
 let chartLine, chartBar, chartLeads;
 
-function buildCharts(dias, bruto, vol) {
-  document.getElementById('totalBruto').textContent = brl(bruto.reduce((a,b)=>a+b,0));
-  const axX = {grid:{color:GC},ticks:{color:TC,font:{size:9}},border:{color:'transparent'}};
-  const axY = {grid:{color:GC},ticks:{color:TC,font:{size:9}},border:{color:'transparent'}};
-  const maxVol = Math.max(...vol,1);
-
+function buildCharts(dias,bruto,vol){
+  document.getElementById('totalBruto').textContent=brl(bruto.reduce((a,b)=>a+b,0));
+  const axX={grid:{color:GC},ticks:{color:TC,font:{size:9}},border:{color:'transparent'}};
+  const axY={grid:{color:GC},ticks:{color:TC,font:{size:9}},border:{color:'transparent'}};
+  const maxVol=Math.max(...vol,1);
   if(chartLine) chartLine.destroy();
-  const ctxL = document.getElementById('cLine').getContext('2d');
-  const grad = ctxL.createLinearGradient(0,0,0,280);
+  const ctxL=document.getElementById('cLine').getContext('2d');
+  const grad=ctxL.createLinearGradient(0,0,0,280);
   grad.addColorStop(0,'rgba(255,215,0,0.28)'); grad.addColorStop(1,'rgba(255,215,0,0)');
-  chartLine = new Chart(ctxL, {
+  chartLine=new Chart(ctxL,{
     type:'line',
     data:{labels:dias,datasets:[{data:bruto,borderColor:'#FFD700',borderWidth:2.5,pointRadius:bruto.map(v=>v>0?3:0),pointBackgroundColor:'#FFD700',pointHoverRadius:5,tension:.35,fill:true,backgroundColor:grad}]},
     options:{responsive:true,maintainAspectRatio:false,animation:{duration:900,easing:'easeOutQuart'},interaction:{mode:'index',intersect:false},
@@ -629,9 +509,8 @@ function buildCharts(dias, bruto, vol) {
       },
       scales:{x:{...axX,ticks:{...axX.ticks,maxTicksLimit:16}},y:{...axY,ticks:{...axY.ticks,callback:v=>brlK(v)}}}}
   });
-
   if(chartBar) chartBar.destroy();
-  chartBar = new Chart(document.getElementById('cBar'), {
+  chartBar=new Chart(document.getElementById('cBar'),{
     type:'bar',
     data:{labels:dias,datasets:[{data:vol,backgroundColor:vol.map(v=>v===maxVol?'#FFD700':'rgba(255,215,0,0.5)'),borderRadius:4,borderSkipped:false}]},
     options:{responsive:true,maintainAspectRatio:false,animation:{duration:700,easing:'easeOutBack'},
@@ -643,22 +522,18 @@ function buildCharts(dias, bruto, vol) {
   });
 }
 
-function buildMiniCharts() {
-  const mkt   = CONFIG.MKT;
-  const dias  = mkt.dias  || [];
-  const leads = mkt.leads || [];
-
-  if (leads.length > 0) {
-    document.getElementById('kLeadsD1').textContent     = mkt.leads_d1 ?? '—';
-    document.getElementById('kLeadsD1sub').textContent  = 'ontem';
-    document.getElementById('kLeadsMes').textContent    = mkt.leads_total_mes ?? '—';
-    document.getElementById('kLeadsMessub').textContent = 'total no mês';
+function buildMiniCharts(){
+  const mkt=CONFIG.MKT;
+  const dias=mkt.dias||[]; const leads=mkt.leads||[];
+  if(leads.length>0){
+    document.getElementById('kLeadsD1').textContent    =mkt.leads_d1??'—';
+    document.getElementById('kLeadsD1sub').textContent ='ontem';
+    document.getElementById('kLeadsMes').textContent   =mkt.leads_total_mes??'—';
+    document.getElementById('kLeadsMessub').textContent='total no mês';
   }
-
-  if (chartLeads) chartLeads.destroy();
-  if (!leads.length) return;
-
-  chartLeads = new Chart(document.getElementById('cLeads'), {
+  if(chartLeads) chartLeads.destroy();
+  if(!leads.length) return;
+  chartLeads=new Chart(document.getElementById('cLeads'),{
     type:'line',
     data:{labels:dias,datasets:[{data:leads,borderColor:'#4CAF50',borderWidth:1.8,pointRadius:leads.map(v=>v>0?2.5:0),pointBackgroundColor:'#4CAF50',tension:.4,fill:true,backgroundColor:'#4CAF5028'}]},
     options:{responsive:true,maintainAspectRatio:false,animation:{duration:600,easing:'easeOutQuart'},
@@ -669,25 +544,23 @@ function buildMiniCharts() {
   });
 }
 
-// ─── HEADER ───────────────────────────────────────────────────
-function updateHeader() {
-  const now = new Date();
-  const mes = now.toLocaleDateString('pt-BR',{month:'long'}).replace(/^\w/,c=>c.toUpperCase());
-  document.getElementById('hTitle').textContent  = `Vendas do Mês — ${mes}`;
-  document.getElementById('hPeriod').textContent = `${mes} · ${now.getFullYear()}`;
+function updateHeader(){
+  const now=new Date();
+  const mes=now.toLocaleDateString('pt-BR',{month:'long'}).replace(/^\w/,c=>c.toUpperCase());
+  document.getElementById('hTitle').textContent =`Vendas do Mês — ${mes}`;
+  document.getElementById('hPeriod').textContent=`${mes} · ${now.getFullYear()}`;
 }
-function updateBadge() {
-  const t = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('refreshBadge').textContent = `atualizado ${t}`;
+function updateBadge(){
+  const t=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('refreshBadge').textContent=`atualizado ${t}`;
 }
 
-// ─── RENDER PRINCIPAL ─────────────────────────────────────────
-async function renderDados() {
-  try {
+async function renderDados(){
+  try{
     status('Buscando dados...');
-    const deals = await fetchPipedrive();
+    const deals=await fetchPipedrive();
     status('Processando...');
-    const {dias,valBrutoDia,volDia,closers,tabela} = processar(deals);
+    const {dias,valBrutoDia,volDia,closers,tabela}=processar(deals);
     updateHeader();
     buildCarousel(closers,tabela);
     buildRanking(tabela);
@@ -696,25 +569,24 @@ async function renderDados() {
     buildMiniCharts();
     updateBadge();
     status('');
-  } catch(e) { console.error(e); status(`Erro: ${e.message}`); }
+  }catch(e){ console.error(e); status(`Erro: ${e.message}`); }
 }
 
-// ─── INICIALIZAÇÃO ────────────────────────────────────────────
 let refreshTimer;
-async function iniciar() {
-  const btn = document.getElementById('btnCarregar');
-  btn.disabled = true; btn.textContent = '⏳ Carregando...';
-  try {
-    await carregarConfig();   // ← Sheets primeiro
-    carregarLogo();           // ← logo do GitHub
-    await renderDados();      // ← Pipedrive + render
-    document.getElementById('loading').style.display = 'none';
-    const app = document.getElementById('app');
-    app.style.display = 'flex'; app.style.height = '100%';
+async function iniciar(){
+  const btn=document.getElementById('btnCarregar');
+  btn.disabled=true; btn.textContent='⏳ Carregando...';
+  try{
+    await carregarConfig();
+    carregarLogo();
+    await renderDados();
+    document.getElementById('loading').style.display='none';
+    const app=document.getElementById('app');
+    app.style.display='flex'; app.style.height='100%';
     clearInterval(refreshTimer);
-    refreshTimer = setInterval(renderDados, REFRESH_MS);
-  } catch(e) {
-    btn.disabled = false; btn.textContent = '▶ Tentar Novamente';
+    refreshTimer=setInterval(renderDados,CONFIG.REFRESH_MS);
+  }catch(e){
+    btn.disabled=false; btn.textContent='▶ Tentar Novamente';
     status(`Erro: ${e.message}`);
   }
 }
