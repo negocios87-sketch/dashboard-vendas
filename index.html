@@ -190,7 +190,7 @@ header{display:flex;justify-content:space-between;align-items:center;flex-shrink
 Chart.register(ChartDataLabels);
 
 const REFRESH_MS  = 5 * 60 * 1000;
-const FOTOS_DIR   = 'https://negocios87-sketch.github.io/fotos_time_comercial';
+const FOTOS_DIR   = 'https://raw.githubusercontent.com/negocios87-sketch/fotos_time_comercial/main';
 
 let CONFIG = {REFRESH_MS,FOTOS_DIR,METAS:{},EQUIPES:{},MKT:{}};
 
@@ -373,9 +373,13 @@ function processar(deals){
   for(const [eq,meta] of Object.entries(CONFIG.METAS))
     if(!eqMap[eq]) eqMap[eq]={realizado:0,meta};
 
+  // ── EQUIPES EXIBIDAS NO DASHBOARD ─────────────────────────
+  const EQUIPES_PERMITIDAS = ['Olympus','Sniper','Elite','LATAM','Orion'];
+
   // ── ORDENAÇÃO POR VALOR REALIZADO (maior → menor) ──────────
   const tabela=Object.entries(eqMap)
     .map(([equipe,d])=>({equipe,meta:d.meta,realizado:d.realizado,pct:d.meta>0?d.realizado/d.meta*100:0}))
+    .filter(r => EQUIPES_PERMITIDAS.includes(r.equipe))
     .sort((a,b)=>b.realizado-a.realizado);
 
   closers.forEach(c=>{
@@ -390,7 +394,8 @@ function carregarFoto(nome,onSuccess,onFail){
   const exts=['jpg','jpeg','png','JPG','JPEG','PNG'];
   let idx=0;
   const img=document.createElement('img');
-  function tenta(){ if(idx>=exts.length){onFail();return;} img.src=`${FOTOS_DIR}/${nome}.${exts[idx++]}`; }
+  const enc=encodeURIComponent(nome);
+  function tenta(){ if(idx>=exts.length){onFail();return;} img.src=`${FOTOS_DIR}/${enc}.${exts[idx++]}`; }
   img.onload=()=>onSuccess(img);
   img.onerror=()=>tenta();
   tenta();
