@@ -385,18 +385,45 @@ function processar(deals){
   const mesYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const vendedores={}, porDia={};
 
+  // ── Mapa de Funil (pipeline) → Equipe ───────────────────────
+  // O funil da venda manda: cobre casos como vendas da gerência
+  // que não estão mapeadas como "do time" na planilha de pessoas.
+  const FUNIL_PARA_EQUIPE = {
+    'sniper':  'Sniper',
+    'elite':   'Elite',
+    'olympus': 'Olympus',
+    'mgm':     'Olympus',   // MGM cai dentro de Olympus
+    'latam':   'LATAM',
+    'orion':   'Orion',
+  };
+  const normalizaTexto = s => (s||'').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+  const eqMap={};
+
   for(const d of deals){
     const wt=d.won_time||'';
     if(!wt.startsWith(mesYM)) continue;
     const nome=d.user_id?.name||'—';
     const val=parseFloat(d.value||0);
     const dia=new Date(wt).getDate();
-    // Normaliza equipe também no processamento dos deals
-    const equipe = normalizeEquipe(CONFIG.EQUIPES[nome] || '—');
-    if(!vendedores[nome]) vendedores[nome]={valor:0,volume:0,equipe};
+
+    // Equipe da pessoa (vinda da planilha) — usada como fallback e pro carrossel
+    const equipePessoa = normalizeEquipe(CONFIG.EQUIPES[nome] || '—');
+
+    // Equipe do funil da venda — tem prioridade
+    const pipelineNome = normalizaTexto(d.pipeline_name);
+    const equipeFunil = FUNIL_PARA_EQUIPE[pipelineNome] || null;
+    const equipeDaVenda = equipeFunil || equipePessoa;
+
+    if(!vendedores[nome]) vendedores[nome]={valor:0,volume:0,equipe:equipePessoa};
     vendedores[nome].valor+=val; vendedores[nome].volume+=1;
     if(!porDia[dia]) porDia[dia]={valor:0,volume:0};
     porDia[dia].valor+=val; porDia[dia].volume+=1;
+
+    // Soma no ranking de equipes pelo funil da venda (não pela pessoa)
+    if(!eqMap[equipeDaVenda]) eqMap[equipeDaVenda]={realizado:0,meta:CONFIG.METAS[equipeDaVenda]||0};
+    eqMap[equipeDaVenda].realizado+=val;
   }
 
   const hoje=now.getDate();
@@ -406,12 +433,6 @@ function processar(deals){
 
   const closers=Object.entries(vendedores).map(([nome,v])=>({nome,...v})).sort((a,b)=>b.valor-a.valor);
 
-  const eqMap={};
-  for(const c of closers){
-    const eq=c.equipe;
-    if(!eqMap[eq]) eqMap[eq]={realizado:0,meta:CONFIG.METAS[eq]||0};
-    eqMap[eq].realizado+=c.valor;
-  }
   for(const [eq,meta] of Object.entries(CONFIG.METAS))
     if(!eqMap[eq]) eqMap[eq]={realizado:0,meta};
 
