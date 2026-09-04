@@ -389,10 +389,10 @@ function processar(deals){
 const FUNIL_PARA_EQUIPE = {
   'sniper':  'Sniper',
   'elite':   'Elite',
-  'navigator': 'Ascensão',
   'olympus': 'Olympus',
-  'latam':    'LATAM',
-  'orion':    'Orion',
+  'mgm':     'Olympus',   // MGM cai dentro de Olympus
+  'latam':   'LATAM',
+  'orion':  'Orion',
 };
   const normalizaTexto = s => (s||'').toString().trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
