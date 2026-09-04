@@ -514,7 +514,7 @@ function buildRanking(tabela){
 
     // Coluna 1: nome da equipe
     const name=document.createElement('div'); name.className='eq-name';
-    name.style.color=idx===0?'var(--gold)':'#f0f0f0'; name.textContent=r.equipe;
+    name.style.color=idx===0?'var(--gold)':'#f0f0f0'; name.textContent = r.equipe === 'Ascensão' ? 'Ascensão/MGM' : r.equipe;
 
     // Coluna 2: barra proporcional ao valor realizado
     const bw=document.createElement('div'); bw.className='eq-bar-wrap';
