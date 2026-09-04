@@ -208,9 +208,7 @@ const status = m => document.getElementById('loadStatus').textContent = m;
 // ─────────────────────────────────────────────────────────────
 function normalizeEquipe(nome) {
   if (!nome) return '—';
-  const n = nome.trim();
-  if (n === 'MGM' || n === 'Ascensão' || n === 'Ascensao') return 'Olympus';
-  return n;
+  return nome.trim();
 }
 
 const tt = document.getElementById('tooltip');
@@ -388,14 +386,14 @@ function processar(deals){
   // ── Mapa de Funil (pipeline) → Equipe ───────────────────────
   // O funil da venda manda: cobre casos como vendas da gerência
   // que não estão mapeadas como "do time" na planilha de pessoas.
-  const FUNIL_PARA_EQUIPE = {
-    'sniper':  'Sniper',
-    'elite':   'Elite',
-    'olympus': 'Olympus',
-    'mgm':     'Olympus',   // MGM cai dentro de Olympus
-    'latam':   'LATAM',
-    'orion':   'Orion',
-  };
+const FUNIL_PARA_EQUIPE = {
+  'sniper':  'Sniper',
+  'elite':   'Elite',
+  'navigator': 'Ascensão',
+  'olympus': 'Olympus',
+  'latam':    'LATAM',
+  'orion':    'Orion',
+};
   const normalizaTexto = s => (s||'').toString().trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
@@ -439,7 +437,14 @@ function processar(deals){
     if(!eqMap[eq]) eqMap[eq]={realizado:0,meta};
 
   // ── EQUIPES EXIBIDAS NO DASHBOARD ─────────────────────────
-  const EQUIPES_PERMITIDAS = ['Olympus','Sniper','Elite','LATAM','Orion'];
+  const EQUIPES_PERMITIDAS = [
+  'Ascensão',
+  'Olympus',
+  'Sniper',
+  'Elite',
+  'LATAM',
+  'Orion'
+];
 
   // ── ORDENAÇÃO POR VALOR REALIZADO (maior → menor) ──────────
   const tabela=Object.entries(eqMap)
